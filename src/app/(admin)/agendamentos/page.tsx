@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useAllAppointments, useBarbers } from '@/hooks/useFirebaseData';
-import { doc, updateDoc, addDoc, collection } from 'firebase/firestore';
+import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
 export default function AgendamentosAdminPage() {
@@ -11,20 +11,10 @@ export default function AgendamentosAdminPage() {
   
   // Estados dos Filtros Locais
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [barberFilter, setBarberFilter] = useState('all'); // NOVO: Filtro de Barbeiro
+  const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'scheduled', 'done'
+  const [barberFilter, setBarberFilter] = useState('all');
 
-
-// Estados do Bloqueio Rápido (Almoço/Pausa)
-  const [blockTime, setBlockTime] = useState('');
-  const [isBlocking, setIsBlocking] = useState(false);
-
-
-    
-    
-
-   
-  // Controle do Modal Brutalista (Fim do window.confirm)
+  // Controle do Modal Brutalista
   const [modal, setModal] = useState<{ isOpen: boolean; id: string; action: 'done' | 'cancelled' | null }>({
     isOpen: false, id: '', action: null
   });
@@ -53,11 +43,15 @@ export default function AgendamentosAdminPage() {
     }
   };
 
-  // Motor de Filtragem 
+  // Motor de Filtragem (AGORA RECONHECE 'scheduled' E 'pending')
   const filteredAppointments = appointments?.filter((apt: any) => {
     const matchesSearch = apt.clientName?.toLowerCase().includes(searchTerm.toLowerCase()) || 
                           apt.phone?.includes(searchTerm);
-    const matchesStatus = statusFilter === 'all' || apt.status === statusFilter;
+    
+    // HACK: Se o filtro for 'scheduled', ele aceita tanto o status novo quanto o antigo ('pending')
+    const matchesStatus = statusFilter === 'all' || 
+                          (statusFilter === 'scheduled' ? (apt.status === 'scheduled' || apt.status === 'pending') : apt.status === statusFilter);
+    
     const matchesBarber = barberFilter === 'all' || apt.barberId === barberFilter;
     
     return matchesSearch && matchesStatus && matchesBarber;
@@ -66,7 +60,7 @@ export default function AgendamentosAdminPage() {
   return (
     <div className="flex flex-col gap-8 animate-in fade-in slide-in-from-bottom-4 duration-500 relative">
       
-      {/* MODAL BRUTALISTA DE CONFIRMAÇÃO (Sobrepõe a tela) */}
+      {/* MODAL BRUTALISTA DE CONFIRMAÇÃO */}
       {modal.isOpen && (
         <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
           <div className="bg-white border-4 border-black p-6 w-full max-w-sm shadow-[8px_8px_0px_0px_#000] animate-in zoom-in-95 duration-200">
@@ -109,11 +103,9 @@ export default function AgendamentosAdminPage() {
         </div>
       </div>
 
-      {/* BARRA DE COMANDO (Filtros Atualizados) */}
+      {/* BARRA DE COMANDO */}
       <div className="bg-white border-4 border-black p-5 shadow-[6px_6px_0px_0px_#000000] flex flex-col gap-4">
         
-   
-
         {/* Linha 1: Busca e Barbeiro */}
         <div className="flex flex-col md:flex-row gap-4">
           <div className="flex-1">
@@ -150,10 +142,13 @@ export default function AgendamentosAdminPage() {
                onClick={() => setStatusFilter('all')}
                className={`flex-1 py-2 font-black text-xs sm:text-sm uppercase tracking-widest transition-colors ${statusFilter === 'all' ? 'bg-black text-white' : 'text-zinc-500 hover:text-black'}`}
              >Tudo</button>
+             
+             {/* AQUI ESTAVA O SEGUNDO ERRO: Mudei para 'scheduled' */}
              <button 
-               onClick={() => setStatusFilter('pending')}
-               className={`flex-1 py-2 font-black text-xs sm:text-sm uppercase tracking-widest transition-colors ${statusFilter === 'pending' ? 'bg-black text-white' : 'text-zinc-500 hover:text-black'}`}
+               onClick={() => setStatusFilter('scheduled')}
+               className={`flex-1 py-2 font-black text-xs sm:text-sm uppercase tracking-widest transition-colors ${statusFilter === 'scheduled' ? 'bg-black text-white' : 'text-zinc-500 hover:text-black'}`}
              >Pendentes</button>
+             
              <button 
                onClick={() => setStatusFilter('done')}
                className={`flex-1 py-2 font-black text-xs sm:text-sm uppercase tracking-widest transition-colors ${statusFilter === 'done' ? 'bg-black text-white' : 'text-zinc-500 hover:text-black'}`}
@@ -176,7 +171,8 @@ export default function AgendamentosAdminPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
           {filteredAppointments?.map((apt: any) => {
-            const isPending = apt.status === 'pending';
+            // AQUI É A CHAVE: O layout agora acende as cores pros dois status
+            const isPending = apt.status === 'pending' || apt.status === 'scheduled';
             const isDone = apt.status === 'done';
             const isCancelled = apt.status === 'cancelled';
 
@@ -201,7 +197,7 @@ export default function AgendamentosAdminPage() {
                   </div>
                 </div>
 
-                {/* BOTÕES DE AÇÃO (Acionam o Modal em vez do confirm nativo) */}
+                {/* BOTÕES DE AÇÃO */}
                 <div className="border-t-4 border-black flex">
                   {isPending ? (
                     <>
