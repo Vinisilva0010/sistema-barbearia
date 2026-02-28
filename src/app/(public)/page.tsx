@@ -1,5 +1,5 @@
 'use client';
-
+import SplashScreen from '@/components/SplashScreen';
 import { useEffect, useRef } from 'react';
 import { useRouter, } from 'next/navigation';
 import Link from 'next/link';
@@ -37,7 +37,6 @@ export default function LandingPage() {
     }, 1000);
   };
   // ------------------------------------------------
-
 
 
   // O Motor de Loop Automático
@@ -101,18 +100,55 @@ export default function LandingPage() {
     <div className="p-6 flex flex-col gap-12 max-w-md md:max-w-4xl mx-auto pb-32 animate-in fade-in duration-500">
       
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+<SplashScreen />
 
       {/* 1. HERO SECTION BRUTALISTA */}
       <section className="mt-4 text-center md:text-left">
+        {/* 1. TÍTULO INTACTO */}
         <h1 className="text-6xl md:text-8xl font-black uppercase tracking-tighter leading-none mb-4 bg-yellow-400 inline-block px-4 py-2 border-4 border-black shadow-[8px_8px_0px_0px_#000000] -rotate-2">
           Bigodes <br />
           <span className="text-white text-5xl md:text-7xl bg-black px-2 mt-2 block shadow-none -rotate-2">Cortes.</span>
         </h1>
-        <p className="font-bold text-xl text-zinc-700 leading-relaxed border-l-8 border-black pl-4 mt-6 bg-white p-4 shadow-[6px_6px_0px_0px_#A1A1AA]">
-          A melhor barbearia de são Mateus, onde tradição e estilo se encontram.
-        </p>
-        {/* BOTÃO DE PORTAL DO CLIENTE */}
-        <div className="mt-8 flex flex-col md:flex-row gap-4">
+
+        {/* 2. O CARROSSEL NO LUGAR DO TEXTO (O Showroom) */}
+        <div className="relative w-full overflow-hidden my-8 py-4 bg-zinc-100 border-y-4 border-black group">
+          
+          {/* O Container que desliza infinitamente */}
+          <div className="flex w-max animate-marquee space-x-6 px-6 hover:[animation-play-state:paused]">
+            
+            {/* Array duplicado para dar o efeito infinito de loop sem quebrar */}
+            {[1, 2, 3, 4, 5, 1, 2, 3, 4, 5].map((item, i) => (
+              <div 
+                key={i} 
+                className="w-32 h-32 md:w-40 md:h-40 shrink-0 bg-white border-[6px] border-[#5c3a21] shadow-[inset_0px_0px_15px_rgba(0,0,0,0.6),_6px_6px_0px_0px_#000000] p-1 flex items-center justify-center overflow-hidden"
+              >
+                <div className="w-full h-full bg-zinc-300 flex items-center justify-center relative">
+                  <img 
+                    src={`/corte3.png`} // <- TROQUE PELA SUA IMAGEM NO FUTURO
+                    alt="Corte Bigodes" 
+                    className="w-full h-full object-cover grayscale md:grayscale hover:grayscale-0 transition-all duration-500"
+                  />
+                  
+                </div>
+                
+              </div>
+            ))}
+          </div>
+
+          {/* O Motor V8 do CSS Embutido */}
+          <style dangerouslySetInnerHTML={{__html: `
+            @keyframes marquee {
+              0% { transform: translateX(0%); }
+              100% { transform: translateX(-50%); }
+            }
+            .animate-marquee {
+              animation: marquee 20s linear infinite;
+            }
+          `}} />
+        </div>
+
+        {/* 3. BOTÕES DE CONVERSÃO INTACTOS */}
+        <div className="flex flex-col md:flex-row gap-4">
           <Link 
             href="/agendar" 
             className="flex-1 bg-black text-white text-center py-5 font-black text-xl uppercase tracking-widest border-4 border-black hover:bg-zinc-800 shadow-[6px_6px_0px_0px_#A1A1AA] active:translate-y-1 active:shadow-none transition-all"
@@ -123,7 +159,7 @@ export default function LandingPage() {
             href="/meus-agendamentos" 
             className="flex-1 bg-white text-black text-center py-5 font-black text-xl uppercase tracking-widest border-4 border-black hover:bg-yellow-400 shadow-[6px_6px_0px_0px_#000000] active:translate-y-1 active:shadow-none transition-all"
           >
-          Meus Agendamentos
+            Meus Agendamentos
           </Link>
         </div>
       </section>

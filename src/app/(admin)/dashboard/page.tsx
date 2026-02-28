@@ -119,7 +119,7 @@ const activePauses = appointments?.filter((a: any) => a.source === 'system-block
       <div className="mt-2 bg-white border-4 border-black p-6 shadow-[6px_6px_0px_0px_#000000]">
         <h2 className="text-2xl font-black uppercase tracking-tighter mb-4 border-b-4 border-black pb-2">Controle de Pausa / Bloqueio</h2>
         <p className="font-bold text-sm text-zinc-500 uppercase mb-6 tracking-widest">
-          A fome bateu ou precisa sair amanhã? Selecione o operador, a data e o horário. A agenda será travada instantaneamente.
+           Hora do almoço, a data e o horário. A agenda será travada instantaneamente.
         </p>
 
         <form onSubmit={handleDynamicPause} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">

@@ -97,7 +97,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         {/* CABEÇALHO DA SIDEBAR COM O SINO */}
         <div className="p-4 border-b-4 border-black bg-black text-white flex justify-between items-center relative z-50">
           <div>
-            <h2 className="text-3xl font-black uppercase tracking-tighter">CUT<span className="text-zinc-500">CORP</span></h2>
+            <h2 className="text-3xl font-black uppercase tracking-tighter">Bigodes<span className="text-zinc-500">cortes</span></h2>
             <p className="font-bold text-[10px] uppercase tracking-widest mt-1 text-zinc-400">Terminal Admin</p>
           </div>
           {/* O SINO ENTRA AQUI NO DESKTOP TAMBÉM */}
