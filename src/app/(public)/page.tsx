@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
+import { useRouter, } from 'next/navigation';
+import Link from 'next/link';
 import { useServices, useBarbers } from '@/hooks/useFirebaseData';
 import InstallButton from '@/components/InstallButton';
 export default function LandingPage() {
@@ -10,6 +12,33 @@ export default function LandingPage() {
   // Referências para controlar a rolagem dos carrosseis
   const barbersRef = useRef<HTMLDivElement>(null);
   const servicesRef = useRef<HTMLDivElement>(null);
+
+
+  
+
+  // --- MOTOR DA PORTA DOS FUNDOS (LOGIN SECRETO) ---
+  const router = useRouter();
+  const clickCount = useRef(0);
+  const clickTimer = useRef<NodeJS.Timeout | null>(null);
+
+  const handleSecretLogin = () => {
+    clickCount.current += 1; // Soma 1 clique
+
+    // Se bater 3 cliques, teleporta o barbeiro pro painel
+    if (clickCount.current >= 3) {
+      router.push('/login');
+      clickCount.current = 0;
+    }
+
+    // Se ele demorar mais de 1 segundo entre os cliques, zera a contagem
+    if (clickTimer.current) clearTimeout(clickTimer.current);
+    clickTimer.current = setTimeout(() => {
+      clickCount.current = 0;
+    }, 1000);
+  };
+  // ------------------------------------------------
+
+
 
   // O Motor de Loop Automático
   useEffect(() => {
@@ -82,6 +111,21 @@ export default function LandingPage() {
         <p className="font-bold text-xl text-zinc-700 leading-relaxed border-l-8 border-black pl-4 mt-6 bg-white p-4 shadow-[6px_6px_0px_0px_#A1A1AA]">
           A melhor barbearia de são Mateus, onde tradição e estilo se encontram.
         </p>
+        {/* BOTÃO DE PORTAL DO CLIENTE */}
+        <div className="mt-8 flex flex-col md:flex-row gap-4">
+          <Link 
+            href="/agendar" 
+            className="flex-1 bg-black text-white text-center py-5 font-black text-xl uppercase tracking-widest border-4 border-black hover:bg-zinc-800 shadow-[6px_6px_0px_0px_#A1A1AA] active:translate-y-1 active:shadow-none transition-all"
+          >
+            AGENDAR AGORA
+          </Link>
+          <Link 
+            href="/meus-agendamentos" 
+            className="flex-1 bg-white text-black text-center py-5 font-black text-xl uppercase tracking-widest border-4 border-black hover:bg-yellow-400 shadow-[6px_6px_0px_0px_#000000] active:translate-y-1 active:shadow-none transition-all"
+          >
+          Meus Agendamentos
+          </Link>
+        </div>
       </section>
 
     {/* BOTÃO DE INSTALAÇÃO DO PWA */}
@@ -191,7 +235,12 @@ export default function LandingPage() {
 
       {/* 5. FOOTER / QG CENTRAL */}
       <section className="bg-black text-white border-4 border-black p-6 md:p-10 shadow-[8px_8px_0px_0px_#A1A1AA] mt-8">
-        <h2 className="text-3xl font-black uppercase tracking-tighter mb-6 border-b-4 border-zinc-700 pb-4">Bigosdes</h2>
+        <h2 
+                onClick={handleSecretLogin} 
+                className="text-3xl font-black uppercase tracking-tighter mb-6 border-b-4 border-zinc-700 pb-4 cursor-pointer select-none"
+                >
+                Bigodes
+                </h2>
         
         <ul className="space-y-4 font-bold text-zinc-300 text-lg mb-8">
           <li className="flex justify-between border-b-2 border-zinc-800 pb-2"><span>Domingo a  Domingo</span>  </li>

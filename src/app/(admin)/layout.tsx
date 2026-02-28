@@ -75,7 +75,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       {/* HEADER MOBILE (Aparece apenas em telas pequenas) */}
       <header className="md:hidden bg-black text-white border-b-4 border-black flex justify-between items-center p-4 sticky top-0 z-40">
         <div className="font-black text-xl uppercase tracking-tighter">
-          CUT<span className="text-zinc-500">CORP</span>
+          Bigodes<span className="text-zinc-500">Cortes</span>
         </div>
         <button 
           onClick={handleLogout}
