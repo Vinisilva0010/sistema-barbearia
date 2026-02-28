@@ -5,19 +5,27 @@ import { useEffect, useState } from 'react';
 export default function InstallButton() {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isIOS, setIsIOS] = useState(false);
+  const [isAndroid, setIsAndroid] = useState(false);
   const [isStandalone, setIsStandalone] = useState(false);
 
   useEffect(() => {
-    // 1. Checa se o cara JÁ instalou o app (se sim, esconde o botão)
+    // 1. Checa se já está em tela cheia (App instalado)
     if (window.matchMedia('(display-mode: standalone)').matches) {
       setIsStandalone(true);
       return;
     }
 
-    // 2. Checa se é iPhone/iPad
-    const isIosDevice = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.userAgent.includes("Mac") && "ontouchend" in document);
+    const userAgent = navigator.userAgent;
 
-    // 3. Captura o pop-up nativo do Android (Chrome)
+    // 2. Radar de iPhone/iPad
+    const isIosDevice = /iPad|iPhone|iPod/.test(userAgent) || (userAgent.includes("Mac") && "ontouchend" in document);
+    setIsIOS(isIosDevice);
+
+    // 3. Radar de Android
+    const isAndroidDevice = /android/i.test(userAgent);
+    setIsAndroid(isAndroidDevice);
+
+    // 4. Tenta capturar o pop-up nativo do Chrome (Se o Google permitir)
     const handleBeforeInstallPrompt = (e: any) => {
       e.preventDefault();
       setDeferredPrompt(e);
@@ -29,22 +37,25 @@ export default function InstallButton() {
 
   const handleInstallClick = async () => {
     if (deferredPrompt) {
-      // É Android: Abre a caixa nativa de instalar
+      // Cenário Ouro: Chrome liberou o pop-up mágico
       deferredPrompt.prompt();
       const { outcome } = await deferredPrompt.userChoice;
       if (outcome === 'accepted') {
-        setDeferredPrompt(null); // Esconde o botão se ele aceitou
+        setDeferredPrompt(null);
       }
     } else if (isIOS) {
-      // É iPhone: Mostra o aviso com as instruções
+      // Cenário Prata (iPhone): Instrução tática
       alert('Para instalar no iPhone:\n\n1. Toque no ícone de Compartilhar (o quadrado com uma seta pra cima, no menu inferior).\n2. Role para baixo e escolha "Adicionar à Tela de Início".');
+    } else if (isAndroid) {
+      // Cenário Bronze (Android blindado): Instrução tática
+      alert('Para instalar no Android:\n\n1. Toque nos 3 pontinhos (Menu) no canto superior direito do navegador.\n2. Escolha "Adicionar à tela inicial" ou "Instalar aplicativo".');
     } else {
-      // Computador / Navegador genérico
+      // Cenário PC
       alert('Acesse este site pelo celular para instalar o App da Barbearia!');
     }
   };
 
-  // Se o app já tá instalado e rodando em tela cheia, o botão some
+  // Esconde o botão se o cara já abriu pelo App instalado
   if (isStandalone) return null;
 
   return (
