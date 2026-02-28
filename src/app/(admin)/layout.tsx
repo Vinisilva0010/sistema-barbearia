@@ -7,7 +7,7 @@ import { auth } from '@/lib/firebase';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
-
+import NotificationBell from '@/components/NotificationBell';
 
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -77,19 +77,31 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <div className="font-black text-xl uppercase tracking-tighter">
           Bigodes<span className="text-zinc-500">Cortes</span>
         </div>
-        <button 
-          onClick={handleLogout}
-          className="border-2 border-zinc-700 px-3 py-1 font-bold text-xs uppercase tracking-widest hover:bg-zinc-800 transition-colors"
-        >
-          [ Sair ]
-        </button>
+        
+        {/* CAIXA DE FERRAMENTAS MOBILE (SINO + SAIR) */}
+        <div className="flex items-center gap-4">
+          <NotificationBell />
+          
+          <button 
+            onClick={handleLogout}
+            className="border-2 border-zinc-700 px-3 py-1 font-bold text-xs uppercase tracking-widest hover:bg-zinc-800 transition-colors"
+          >
+            [ Sair ]
+          </button>
+        </div>
       </header>
 
       {/* SIDEBAR DESKTOP (Escondida no mobile) */}
-      <aside className="hidden md:flex w-72 bg-white border-r-4 border-black flex-col z-10 shadow-[4px_0px_0px_0px_#000000] sticky top-0 h-screen">
-        <div className="p-6 border-b-4 border-black bg-black text-white">
-          <h2 className="text-3xl font-black uppercase tracking-tighter">CUT<span className="text-zinc-500">CORP</span></h2>
-          <p className="font-bold text-xs uppercase tracking-widest mt-1 text-zinc-400">Terminal Admin</p>
+      <aside className="hidden md:flex w-72 bg-white border-r-4 border-black flex-col shadow-[4px_0px_0px_0px_#000000] sticky top-0 h-screen z-50">
+        
+        {/* CABEÇALHO DA SIDEBAR COM O SINO */}
+        <div className="p-4 border-b-4 border-black bg-black text-white flex justify-between items-center relative z-50">
+          <div>
+            <h2 className="text-3xl font-black uppercase tracking-tighter">CUT<span className="text-zinc-500">CORP</span></h2>
+            <p className="font-bold text-[10px] uppercase tracking-widest mt-1 text-zinc-400">Terminal Admin</p>
+          </div>
+          {/* O SINO ENTRA AQUI NO DESKTOP TAMBÉM */}
+          <NotificationBell />
         </div>
         
         <nav className="flex-1 p-6 flex flex-col gap-4">
