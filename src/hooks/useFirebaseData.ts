@@ -66,6 +66,9 @@ export function useBookedSlots(barberId: string | null, date: string | null) {
       );
       
       const snapshot = await getDocs(q);
+
+
+      
       const blockedSlots: string[] = [];
 
       snapshot.docs.forEach(doc => {
@@ -94,6 +97,9 @@ export function useBookedSlots(barberId: string | null, date: string | null) {
     },
     enabled: !!barberId && !!date,
     retry: false,
+
+    refetchOnMount: "always", 
+    staleTime: 0,
   });
 }
 

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAppointmentStore } from '@/hooks/useAppointmentStore';
 import { useServices, useBarbers, useBookedSlots } from '@/hooks/useFirebaseData';
 import { generateAvailableSlots } from '@/lib/slots';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
 export default function AgendarPage() {
@@ -79,7 +79,6 @@ export default function AgendarPage() {
     : [];
 
   const handleConfirmBooking = async () => {
-    // 1. O TYPE GUARD: Prova pro TypeScript que nada é nulo
     if (!clientName || clientPhone.length < 10 || !selectedTime || !selectedDate) {
       alert("Preencha todos os dados corretamente antes de confirmar.");
       return;
@@ -88,15 +87,27 @@ export default function AgendarPage() {
     setIsSubmitting(true);
 
     try {
-      // 2. BLINDAGEM MÁXIMA (Double Check): Agora o TS sabe que selectedTime é uma string pura
-      if (bookedSlots && bookedSlots.includes(selectedTime)) {
-        alert('ALERTA: Este horário acabou de ser reservado por outro cliente. Por favor, escolha outro horário.');
+      // 1. BLINDAGEM LIVE (ANTI-COLISÃO): Bate no Firebase agora para ver se alguém roubou a vaga nos últimos segundos
+      const checkQuery = query(
+        collection(db, 'appointments'),
+        where('barberId', '==', barberId),
+        where('date', '==', selectedDate),
+        where('time', '==', selectedTime)
+      );
+      
+      const snapshot = await getDocs(checkQuery);
+      
+      // Verifica se existe alguma ficha lá que NÃO ESTEJA cancelada
+      const isTaken = snapshot.docs.some(doc => doc.data().status !== 'cancelled');
+
+      if (isTaken) {
+        alert('PUTZ! Outro cliente acabou de reservar este exato horário milissegundos antes de você. Por favor, escolha outro.');
         setIsSubmitting(false);
-        useAppointmentStore.getState().prevStep(); // Volta pra tela de horários
+        useAppointmentStore.getState().prevStep(); // Joga o cara de volta pros horários
         return;
       }
 
-      // 3. GRAVAÇÃO NO BANCO (com o status 'scheduled' travando a cadeira)
+      // 2. CAMINHO LIVRE: Gravação no banco com o status travando a cadeira
       await addDoc(collection(db, 'appointments'), {
         clientName,
         phone: clientPhone,
