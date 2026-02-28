@@ -79,14 +79,24 @@ export default function AgendarPage() {
     : [];
 
   const handleConfirmBooking = async () => {
-    if (!clientName || clientPhone.length < 10) {
-      alert("Preencha o nome e um telefone válido.");
+    // 1. O TYPE GUARD: Prova pro TypeScript que nada é nulo
+    if (!clientName || clientPhone.length < 10 || !selectedTime || !selectedDate) {
+      alert("Preencha todos os dados corretamente antes de confirmar.");
       return;
     }
 
     setIsSubmitting(true);
 
     try {
+      // 2. BLINDAGEM MÁXIMA (Double Check): Agora o TS sabe que selectedTime é uma string pura
+      if (bookedSlots && bookedSlots.includes(selectedTime)) {
+        alert('ALERTA: Este horário acabou de ser reservado por outro cliente. Por favor, escolha outro horário.');
+        setIsSubmitting(false);
+        useAppointmentStore.getState().prevStep(); // Volta pra tela de horários
+        return;
+      }
+
+      // 3. GRAVAÇÃO NO BANCO (com o status 'scheduled' travando a cadeira)
       await addDoc(collection(db, 'appointments'), {
         clientName,
         phone: clientPhone,
@@ -96,12 +106,10 @@ export default function AgendarPage() {
         barberName: selectedBarberData?.name,
         date: selectedDate,
         time: selectedTime,
-        status: 'pending',
-        source: 'online',
+        status: 'scheduled', 
         createdAt: serverTimestamp(),
       });
 
-      // Em vez de redirecionar, ativamos a tela de sucesso
       setIsSuccess(true);
       
     } catch (error) {
@@ -110,7 +118,6 @@ export default function AgendarPage() {
       setIsSubmitting(false);
     }
   };
-
   // Hack de Performance: Gerador de link do Google Calendar local (Sem API externa)
   const handleAddToCalendar = () => {
     if (!selectedDate || !selectedTime || !selectedServiceData) return;
@@ -172,12 +179,7 @@ export default function AgendarPage() {
               [ Adicionar à Minha Agenda ]
             </button>
             
-            <button 
-              onClick={handleWhatsAppNotify}
-              className="w-full bg-black text-white border-4 border-black py-4 font-black uppercase tracking-widest hover:bg-zinc-800 shadow-[4px_4px_0px_0px_#000000] active:translate-y-1 active:shadow-none transition-all"
-            >
-              [ Enviar Comprovante no WhatsApp ]
-            </button>
+            
           </div>
 
           <button 

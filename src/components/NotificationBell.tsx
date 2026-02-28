@@ -52,7 +52,7 @@ export default function NotificationBell() {
 
       {/* O PAINEL FLUTUANTE (DROPDOWN) */}
       {isOpen && (
-        <div className="absolute top-16 right-0 w-72 md:w-80 bg-white border-4 border-black shadow-[8px_8px_0px_0px_#000000] z-50 flex flex-col animate-in fade-in slide-in-from-top-2 duration-200">
+        <div className="absolute top-16 right-0 md:left-0 md:right-auto w-72 md:w-80 bg-white border-4 border-black shadow-[8px_8px_0px_0px_#000000] z-50 flex flex-col animate-in fade-in slide-in-from-top-2 duration-200">
           <div className="bg-black text-white p-4 flex justify-between items-center border-b-4 border-black">
             <h3 className="font-black uppercase tracking-widest">Radar Central</h3>
             <button onClick={() => setIsOpen(false)} className="font-black text-red-500 hover:text-white">X</button>
@@ -66,8 +66,13 @@ export default function NotificationBell() {
             ) : (
               newAppointments.map((apt: any) => (
                 <div key={apt.id} className="bg-yellow-100 border-2 border-black p-3 text-sm">
-                  <p className="font-black uppercase">{apt.clientName}</p>
-                  <p className="font-bold text-zinc-700 uppercase text-xs">{apt.serviceName}</p>
+                  <p className="font-black text-black uppercase">{apt.clientName}</p>
+                  
+                 
+                  <p className="font-bold text-zinc-700 uppercase text-xs">
+                    {apt.serviceName} <span className="text-red-600 font-black ml-1">• OP: {apt.barberName}</span>
+                  </p>
+                  
                   <p className="text-black font-black mt-2 bg-white border-2 border-black inline-block px-2 py-1">
                     {apt.date.split('-').reverse().join('/')} às {apt.time}
                   </p>
