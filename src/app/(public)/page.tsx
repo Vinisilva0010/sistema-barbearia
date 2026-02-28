@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import { useServices, useBarbers } from '@/hooks/useFirebaseData';
-
+import InstallButton from '@/components/InstallButton';
 export default function LandingPage() {
   const { data: services, isLoading: loadingServices } = useServices();
   const { data: barbers, isLoading: loadingBarbers } = useBarbers();
@@ -48,7 +48,7 @@ export default function LandingPage() {
     '@context': 'https://schema.org',
     '@type': 'HairSalon',
     name: 'Bigodes Cortes',
-    image: 'https://sua-logo.com/logo.jpg', 
+    image: '/icons/logo-bigo.png', 
     telephone: '+5511999999999',
     address: {
       '@type': 'PostalAddress',
@@ -83,6 +83,9 @@ export default function LandingPage() {
           A melhor barbearia de são Mateus, onde tradição e estilo se encontram.
         </p>
       </section>
+
+    {/* BOTÃO DE INSTALAÇÃO DO PWA */}
+      <InstallButton />
 
       {/* 2. O ESPELHO DO BALCÃO COM VÍDEO ANTI-LAG */}
       <section className="relative w-full max-w-2xl mx-auto mt-4 group">
@@ -130,7 +133,7 @@ export default function LandingPage() {
             className="flex overflow-x-auto snap-x snap-mandatory gap-6 pb-8 pt-2 px-2 hide-scrollbar scroll-smooth"
           >
             {barbers?.filter(b => b.active).map(barber => (
-              <div key={barber.id} className="min-w-65 md:min-w-75 snap-center bg-white border-4 border-black shadow-[6px_6px_0px_0px_#000000] flex flex-col shrink-0">
+              <div key={barber.id} className="w-64 md:w-72 shrink-0 snap-center bg-white border-4 border-black shadow-[6px_6px_0px_0px_#000000] flex flex-col overflow-hidden">
                 {barber.photoUrl ? (
                   <img src={barber.photoUrl} alt={barber.name} className="w-full h-48 object-cover border-b-4 border-black grayscale hover:grayscale-0 transition-all" />
                 ) : (
