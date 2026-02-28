@@ -212,8 +212,8 @@ export default function ConfigPage() {
 
       <div className="flex bg-zinc-100 border-4 border-black p-1 overflow-x-auto">
         <button onClick={() => setActiveTab('services')} className={`flex-1 min-w-30 py-3 font-black text-xs sm:text-sm uppercase tracking-widest transition-colors ${activeTab === 'services' ? 'bg-black text-white' : 'text-zinc-500 hover:text-black'}`}>Serviços</button>
-        <button onClick={() => setActiveTab('barbers')} className={`flex-1 min-w-30 py-3 font-black text-xs sm:text-sm uppercase tracking-widest transition-colors ${activeTab === 'barbers' ? 'bg-black text-white' : 'text-zinc-500 hover:text-black'}`}>Operadores</button>
-        <button onClick={() => setActiveTab('system')} className={`flex-1 min-w-30 py-3 font-black text-xs sm:text-sm uppercase tracking-widest transition-colors ${activeTab === 'system' ? 'bg-black text-white' : 'text-zinc-500 hover:text-black'}`}>Sistema</button>
+        <button onClick={() => setActiveTab('barbers')} className={`flex-1 min-w-30 py-3 font-black text-xs sm:text-sm uppercase tracking-widest transition-colors ${activeTab === 'barbers' ? 'bg-black text-white' : 'text-zinc-500 hover:text-black'}`}>Barbeiros</button>
+        <button onClick={() => setActiveTab('system')} className={`flex-1 min-w-30 py-3 font-black text-xs sm:text-sm uppercase tracking-widest transition-colors ${activeTab === 'system' ? 'bg-black text-white' : 'text-zinc-500 hover:text-black'}`}>deletar tudo</button>
       </div>
 
 
@@ -328,7 +328,7 @@ export default function ConfigPage() {
               </div>
               <div>
                 <label className="block font-black uppercase tracking-widest text-xs mb-1">Especialidade *</label>
-                <input type="text" value={newBarberSpecialty} onChange={(e) => setNewBarberSpecialty(e.target.value)} placeholder="EX: BARBOTERAPIA" className="w-full bg-zinc-50 border-4 border-black p-3 font-bold uppercase outline-none focus:bg-zinc-200" required />
+                <input type="text" value={newBarberSpecialty} onChange={(e) => setNewBarberSpecialty(e.target.value)} placeholder="EX: BARBa & cabelo" className="w-full bg-zinc-50 border-4 border-black p-3 font-bold uppercase outline-none focus:bg-zinc-200" required />
               </div>
               <div>
                 <label className="block font-black uppercase tracking-widest text-xs mb-1">WhatsApp</label>

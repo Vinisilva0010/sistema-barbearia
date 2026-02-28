@@ -116,21 +116,24 @@ export default function LandingPage() {
           {/* O Container que desliza infinitamente */}
           <div className="flex w-max animate-marquee space-x-6 px-6 hover:[animation-play-state:paused]">
             
-            {/* Array duplicado para dar o efeito infinito de loop sem quebrar */}
-            {[1, 2, 3, 4, 5, 1, 2, 3, 4, 5].map((item, i) => (
+            {/* Array com as 3 imagens multiplicadas para dar o efeito infinito de loop */}
+            {[
+              '/corte1.png', '/corte2.png', '/corte3.png', 
+              '/corte1.png', '/corte2.png', '/corte3.png', 
+              '/corte1.png', '/corte2.png', '/corte3.png'
+            ].map((imgSrc, i) => (
               <div 
                 key={i} 
                 className="w-32 h-32 md:w-40 md:h-40 shrink-0 bg-white border-[6px] border-[#5c3a21] shadow-[inset_0px_0px_15px_rgba(0,0,0,0.6),_6px_6px_0px_0px_#000000] p-1 flex items-center justify-center overflow-hidden"
               >
-                <div className="w-full h-full bg-zinc-300 flex items-center justify-center relative">
+                <div className="w-full h-full bg-zinc-300 flex items-center justify-center relative overflow-hidden">
                   <img 
-                    src={`/corte3.png`} // <- TROQUE PELA SUA IMAGEM NO FUTURO
+                    src={imgSrc} 
                     alt="Corte Bigodes" 
-                    className="w-full h-full object-cover grayscale md:grayscale hover:grayscale-0 transition-all duration-500"
+                    
+                    className="w-full h-full object-cover transition-transform duration-500 hover:scale-110"
                   />
-                  
                 </div>
-                
               </div>
             ))}
           </div>
