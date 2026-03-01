@@ -78,13 +78,16 @@ export default function AgendarPage() {
       })
     : [];
 
-  const handleConfirmBooking = async () => {
+ const handleConfirmBooking = async () => {
     if (!clientName || clientPhone.length < 10 || !selectedTime || !selectedDate) {
       alert("Preencha todos os dados corretamente antes de confirmar.");
       return;
     }
 
     setIsSubmitting(true);
+
+    
+    const cleanPhone = clientPhone.replace(/\D/g, '');
 
     try {
       // 1. BLINDAGEM LIVE (ANTI-COLISÃO): Bate no Firebase agora para ver se alguém roubou a vaga nos últimos segundos
