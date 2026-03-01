@@ -4,7 +4,9 @@ import { useState } from 'react';
 import { useServices, useBarbers } from '@/hooks/useFirebaseData';
 import { collection, addDoc, doc, updateDoc, deleteDoc, getDocs, writeBatch } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'; 
-import { db, storage } from '@/lib/firebase';
+// 1. NOVAS IMPORTAÇÕES DE SEGURANÇA E AUTH
+import { EmailAuthProvider, reauthenticateWithCredential, updatePassword, signOut } from 'firebase/auth';
+import { db, storage, auth } from '@/lib/firebase'; 
 
 export default function ConfigPage() {
   const [activeTab, setActiveTab] = useState<'services' | 'barbers' | 'system'>('services');
@@ -12,7 +14,6 @@ export default function ConfigPage() {
   const [isSavingSchedule, setIsSavingSchedule] = useState(false);
   
   const handleOpenScheduleEditor = (barber: any) => {
-    // Se ele já tiver a schedule salva no banco, carrega, senão carrega a default
     setSchedule(barber.schedule || defaultSchedule);
     setEditingScheduleBarber(barber);
   };
@@ -30,6 +31,7 @@ export default function ConfigPage() {
       setIsSavingSchedule(false);
     }
   };
+
   // ==========================================
   // MÓDULO 1: GESTÃO DE SERVIÇOS
   // ==========================================
@@ -71,7 +73,7 @@ export default function ConfigPage() {
   };
 
   // ==========================================
-  // MÓDULO 2: GESTÃO DE OPERADORES (ATUALIZADO)
+  // MÓDULO 2: GESTÃO DE OPERADORES
   // ==========================================
   const { data: barbers, isLoading: loadingBarbers, refetch: refetchBarbers } = useBarbers();
   const [newBarberName, setNewBarberName] = useState('');
@@ -80,61 +82,6 @@ export default function ConfigPage() {
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [isSubmittingBarber, setIsSubmittingBarber] = useState(false);
 
-// ==========================================
-  // MÓDULO 3: SISTEMA (ZONA DE PERIGO)
-  // ==========================================
-  const [wipeConfirmation, setWipeConfirmation] = useState('');
-  const [isWiping, setIsWiping] = useState(false);
-
-  const handleWipeData = async () => {
-    // A trava de segurança nível militar
-    if (wipeConfirmation !== 'apagar') {
-      alert('Frase de segurança incorreta. Abortando operação.');
-      return;
-    }
-    if (!window.confirm('ALERTA MÁXIMO: Isso apagará TODOS os agendamentos, barbeiros, serviços e planos. Essa ação é IRREVERSÍVEL. Confirmar obliteração?')) return;
-
-    setIsWiping(true);
-    try {
-      const collectionsToWipe = ['appointments', 'barbers', 'services', 'monthlyPlans'];
-
-      for (const colName of collectionsToWipe) {
-        const snapshot = await getDocs(collection(db, colName));
-        
-        // O Firebase tem um limite de apagar 500 documentos por vez. O Batch resolve isso.
-        const batches = [];
-        let currentBatch = writeBatch(db);
-        let count = 0;
-
-        snapshot.docs.forEach((document) => {
-          currentBatch.delete(doc(db, colName, document.id));
-          count++;
-          if (count === 490) { // Margem de segurança
-            batches.push(currentBatch);
-            currentBatch = writeBatch(db);
-            count = 0;
-          }
-        });
-        batches.push(currentBatch);
-
-        // Executa as exclusões
-        for (const b of batches) {
-          await b.commit();
-        }
-      }
-
-      alert('SISTEMA RESETADO. A base de dados foi obliterada com sucesso.');
-      setWipeConfirmation('');
-      window.location.reload(); // Recarrega a página para limpar o cache da memória RAM
-    } catch (error) {
-      console.error(error);
-      alert('Erro crítico ao tentar apagar os dados.');
-    } finally {
-      setIsWiping(false);
-    }
-  };
-
-  // Matriz de dias da semana (0 = Domingo, 6 = Sábado)
   const defaultSchedule = [
     { day: 'Domingo', active: false, start: '09:00', end: '13:00' },
     { day: 'Segunda', active: true, start: '09:00', end: '19:00' },
@@ -159,25 +106,21 @@ export default function ConfigPage() {
     
     try {
       let finalPhotoUrl = '';
-
-      // Se o usuário selecionou uma foto, fazemos o upload pro Storage primeiro
       if (photoFile) {
-        // Cria uma referência única usando a data para nunca ter imagens com mesmo nome
         const storageRef = ref(storage, `barbers/${Date.now()}_${photoFile.name}`);
         const snapshot = await uploadBytes(storageRef, photoFile);
-        finalPhotoUrl = await getDownloadURL(snapshot.ref); // Pega o link real gerado pelo Google
+        finalPhotoUrl = await getDownloadURL(snapshot.ref);
       }
 
       await addDoc(collection(db, 'barbers'), {
         name: newBarberName.toUpperCase(),
         specialty: newBarberSpecialty.toUpperCase(),
         phone: newBarberPhone,
-        photoUrl: finalPhotoUrl, // Salva o link real da CDN do Google
+        photoUrl: finalPhotoUrl, 
         active: true,
         schedule: schedule 
       });
 
-      // Limpa os dados depois de criar
       setNewBarberName(''); 
       setNewBarberSpecialty(''); 
       setNewBarberPhone(''); 
@@ -202,6 +145,109 @@ export default function ConfigPage() {
     await deleteDoc(doc(db, 'barbers', id));
     refetchBarbers();
   };
+
+  // ==========================================
+  // MÓDULO 3: SISTEMA (ZONA DE PERIGO E SENHA)
+  // ==========================================
+  const [wipeConfirmation, setWipeConfirmation] = useState('');
+  const [isWiping, setIsWiping] = useState(false);
+  
+  // ESTADOS DA PORTA DE AÇO
+  const [isDangerZoneUnlocked, setIsDangerZoneUnlocked] = useState(false);
+  const [authPassword, setAuthPassword] = useState('');
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+
+  // FUNÇÃO: REAUTENTICAR (DESTRAVAR O COFRE)
+  const handleUnlockDangerZone = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!auth.currentUser || !auth.currentUser.email) return;
+
+    setIsAuthenticating(true);
+    try {
+      const credential = EmailAuthProvider.credential(auth.currentUser.email, authPassword);
+      await reauthenticateWithCredential(auth.currentUser, credential);
+      setIsDangerZoneUnlocked(true); // Abre as portas
+      setAuthPassword(''); // Limpa a senha por segurança
+    } catch (error) {
+      console.error(error);
+      alert('ACESSO NEGADO: Senha Incorreta ou Falha de Comunicação.');
+    } finally {
+      setIsAuthenticating(false);
+    }
+  };
+
+  // FUNÇÃO: ALTERAR SENHA E DESLOGAR
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!auth.currentUser) return;
+    if (newPassword.length < 6) {
+      alert('A nova senha deve ter no mínimo 6 caracteres.');
+      return;
+    }
+
+    if (!window.confirm('Ao trocar a senha, todos os aparelhos logados serão desconectados. Prosseguir?')) return;
+
+    setIsChangingPassword(true);
+    try {
+      await updatePassword(auth.currentUser, newPassword);
+      alert('SENHA ALTERADA COM SUCESSO! O sistema fará o logout por segurança.');
+      await signOut(auth);
+      window.location.href = '/login'; // Chuta o usuário pra fora
+    } catch (error) {
+      console.error(error);
+      alert('Erro ao alterar a senha. Tente novamente.');
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
+
+  // FUNÇÃO: OBLITERAR DADOS
+  const handleWipeData = async () => {
+    if (wipeConfirmation !== 'apagar') {
+      alert('Frase de segurança incorreta. Abortando operação.');
+      return;
+    }
+    if (!window.confirm('ALERTA MÁXIMO: Isso apagará TODOS os agendamentos, barbeiros, serviços e planos. Essa ação é IRREVERSÍVEL. Confirmar obliteração?')) return;
+
+    setIsWiping(true);
+    try {
+      const collectionsToWipe = ['appointments', 'barbers', 'services', 'monthlyPlans'];
+
+      for (const colName of collectionsToWipe) {
+        const snapshot = await getDocs(collection(db, colName));
+        const batches = [];
+        let currentBatch = writeBatch(db);
+        let count = 0;
+
+        snapshot.docs.forEach((document) => {
+          currentBatch.delete(doc(db, colName, document.id));
+          count++;
+          if (count === 490) { 
+            batches.push(currentBatch);
+            currentBatch = writeBatch(db);
+            count = 0;
+          }
+        });
+        batches.push(currentBatch);
+
+        for (const b of batches) {
+          await b.commit();
+        }
+      }
+
+      alert('SISTEMA RESETADO. A base de dados foi obliterada com sucesso.');
+      setWipeConfirmation('');
+      window.location.reload(); 
+    } catch (error) {
+      console.error(error);
+      alert('Erro crítico ao tentar apagar os dados.');
+    } finally {
+      setIsWiping(false);
+    }
+  };
+
   return (
     <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-4xl mx-auto">
       
@@ -213,13 +259,10 @@ export default function ConfigPage() {
       <div className="flex bg-zinc-100 border-4 border-black p-1 overflow-x-auto">
         <button onClick={() => setActiveTab('services')} className={`flex-1 min-w-30 py-3 font-black text-xs sm:text-sm uppercase tracking-widest transition-colors ${activeTab === 'services' ? 'bg-black text-white' : 'text-zinc-500 hover:text-black'}`}>Serviços</button>
         <button onClick={() => setActiveTab('barbers')} className={`flex-1 min-w-30 py-3 font-black text-xs sm:text-sm uppercase tracking-widest transition-colors ${activeTab === 'barbers' ? 'bg-black text-white' : 'text-zinc-500 hover:text-black'}`}>Barbeiros</button>
-        <button onClick={() => setActiveTab('system')} className={`flex-1 min-w-30 py-3 font-black text-xs sm:text-sm uppercase tracking-widest transition-colors ${activeTab === 'system' ? 'bg-black text-white' : 'text-zinc-500 hover:text-black'}`}>deletar tudo</button>
+        <button onClick={() => setActiveTab('system')} className={`flex-1 min-w-30 py-3 font-black text-xs sm:text-sm uppercase tracking-widest transition-colors ${activeTab === 'system' ? 'bg-black text-white' : 'text-zinc-500 hover:text-black'}`}>Sistema / Segurança</button>
       </div>
 
-
-      
-
-      {/* ABA 1: SERVIÇOS */}
+      {/* ABA 1: SERVIÇOS (Inalterada) */}
       {activeTab === 'services' && (
         <div className="flex flex-col gap-6 animate-in fade-in duration-300">
           <form onSubmit={handleAddService} className="bg-white border-4 border-black p-6 shadow-[6px_6px_0px_0px_#000000] flex flex-col gap-4">
@@ -272,21 +315,17 @@ export default function ConfigPage() {
         </div>
       )}
 
-
-      
-
-      {/* ABA 2: OPERADORES (Criação Separada da Jornada de Trabalho) */}
+      {/* ABA 2: OPERADORES (Inalterada) */}
       {activeTab === 'barbers' && (
         <div className="flex flex-col gap-6 animate-in fade-in duration-300 relative">
           
-          {/* MODAL DE EDIÇÃO DE JORNADA */}
           {editingScheduleBarber && (
             <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4">
               <div className="bg-white border-4 border-black p-6 w-full max-w-lg shadow-[8px_8px_0px_0px_#A1A1AA] max-h-[90vh] overflow-y-auto">
                 <h3 className="text-2xl font-black uppercase tracking-tighter mb-2 border-b-4 border-black pb-2">
                   Jornada: {editingScheduleBarber.name}
                 </h3>
-                <p className="font-bold text-zinc-600 mb-6 text-sm uppercase">Edite os dias de abertura e fechamento deste operador. Atualiza em tempo real na vitrine.</p>
+                <p className="font-bold text-zinc-600 mb-6 text-sm uppercase">Edite os dias de abertura e fechamento deste operador.</p>
                 
                 <div className="flex flex-col gap-3 mb-6">
                   {schedule.map((day, index) => (
@@ -318,7 +357,6 @@ export default function ConfigPage() {
             </div>
           )}
 
-          {/* FORMULÁRIO SIMPLES DE CRIAÇÃO (SÓ OS DADOS) */}
           <form onSubmit={handleAddBarber} className="bg-white border-4 border-black p-6 shadow-[6px_6px_0px_0px_#000000] flex flex-col gap-4">
             <h2 className="font-black uppercase tracking-widest border-l-4 border-black pl-2 mb-2">Homologar Novo Operador</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -336,32 +374,20 @@ export default function ConfigPage() {
               </div>
               <div>
                 <label className="block font-black uppercase tracking-widest text-xs mb-1">Foto de Perfil (Opcional)</label>
-                <input 
-                  type="file" 
-                  accept="image/*" 
-                  onChange={(e) => {
-                    if (e.target.files && e.target.files[0]) {
-                      setPhotoFile(e.target.files[0]);
-                    }
-                  }} 
-                  className="w-full bg-zinc-50 border-4 border-black p-2 font-bold text-xs uppercase outline-none focus:bg-zinc-200 cursor-pointer file:mr-4 file:py-2 file:px-4 file:border-0 file:bg-black file:text-white file:font-black file:uppercase file:text-xs hover:file:bg-zinc-800 transition-all" 
-                />
+                <input type="file" accept="image/*" onChange={(e) => { if (e.target.files && e.target.files[0]) { setPhotoFile(e.target.files[0]); } }} className="w-full bg-zinc-50 border-4 border-black p-2 font-bold text-xs uppercase outline-none focus:bg-zinc-200 cursor-pointer file:mr-4 file:py-2 file:px-4 file:border-0 file:bg-black file:text-white file:font-black file:uppercase file:text-xs hover:file:bg-zinc-800 transition-all" />
               </div>
             </div>
-            
             <button type="submit" disabled={isSubmittingBarber} className="w-full mt-2 bg-black text-white py-4 font-black text-sm uppercase tracking-widest hover:bg-zinc-800 disabled:opacity-50 transition-colors border-4 border-black">
               {isSubmittingBarber ? 'CADASTRANDO...' : '[ + ] CADASTRAR PERFIL'}
             </button>
           </form>
 
-          {/* LISTAGEM DOS BARBEIROS (Com botão de Editar Jornada) */}
           <div className="flex flex-col gap-4">
             {loadingBarbers ? (
               <div className="border-4 border-black p-6 text-center font-black animate-pulse">CARREGANDO...</div>
             ) : (
               barbers?.map(barber => (
                 <div key={barber.id} className={`flex flex-col bg-white border-4 border-black p-4 shadow-[4px_4px_0px_0px_#000000] ${!barber.active ? 'opacity-60 bg-zinc-200 border-dashed' : ''}`}>
-                  
                   <div className="flex justify-between items-start mb-4">
                     <div className="flex gap-4 items-center">
                       {barber.photoUrl ? (
@@ -376,24 +402,14 @@ export default function ConfigPage() {
                       </div>
                     </div>
                   </div>
-                  
                   <div className="flex flex-col md:flex-row gap-2 w-full pt-4 border-t-2 border-dashed border-zinc-300">
-                    <button 
-                      onClick={() => handleOpenScheduleEditor(barber)}
-                      className="flex-1 px-4 py-3 bg-zinc-100 text-black border-4 border-black font-black text-xs uppercase tracking-widest hover:bg-zinc-200 transition-colors"
-                    >
+                    <button onClick={() => handleOpenScheduleEditor(barber)} className="flex-1 px-4 py-3 bg-zinc-100 text-black border-4 border-black font-black text-xs uppercase tracking-widest hover:bg-zinc-200 transition-colors">
                       [ EDITAR JORNADA ]
                     </button>
-                    <button 
-                      onClick={() => handleToggleBarber(barber.id, barber.active)} 
-                      className={`flex-1 px-4 py-3 font-black text-xs uppercase tracking-widest border-4 border-black transition-colors ${barber.active ? 'bg-white text-black hover:bg-zinc-200' : 'bg-black text-white hover:bg-zinc-800'}`}
-                    >
+                    <button onClick={() => handleToggleBarber(barber.id, barber.active)} className={`flex-1 px-4 py-3 font-black text-xs uppercase tracking-widest border-4 border-black transition-colors ${barber.active ? 'bg-white text-black hover:bg-zinc-200' : 'bg-black text-white hover:bg-zinc-800'}`}>
                       {barber.active ? 'DESATIVAR' : 'ATIVAR'}
                     </button>
-                    <button 
-                      onClick={() => handleDeleteBarber(barber.id)} 
-                      className="px-4 py-3 bg-white text-red-600 border-4 border-black font-black text-xs uppercase hover:bg-red-50 transition-colors"
-                    >
+                    <button onClick={() => handleDeleteBarber(barber.id)} className="px-4 py-3 bg-white text-red-600 border-4 border-black font-black text-xs uppercase hover:bg-red-50 transition-colors">
                       EXCLUIR PERFIL
                     </button>
                   </div>
@@ -404,62 +420,119 @@ export default function ConfigPage() {
         </div>
       )}
 
-      {/* ABA 3: SISTEMA (ZONA DE PERIGO) */}
+      {/* ABA 3: SISTEMA (ZONA DE PERIGO E SEGURANÇA BLINDADA) */}
       {activeTab === 'system' && (
         <div className="flex flex-col gap-6 animate-in fade-in duration-300">
           
-          <div className="bg-red-50 border-4 border-red-600 p-6 md:p-8 shadow-[6px_6px_0px_0px_#DC2626]">
-            <div className="flex items-center gap-4 mb-4 border-b-4 border-red-600 pb-4">
-              <div className="w-12 h-12 bg-red-600 text-white flex items-center justify-center font-black text-2xl">!</div>
-              <div>
-                <h2 className="font-black text-2xl md:text-3xl uppercase tracking-tighter text-red-600">Zona de Perigo</h2>
-                <p className="font-bold text-xs md:text-sm text-red-800 uppercase tracking-widest">Reset de Fábrica / Obliteração de Dados</p>
+          {/* SE A PORTA DE AÇO ESTIVER TRANCADA */}
+          {!isDangerZoneUnlocked ? (
+            <form onSubmit={handleUnlockDangerZone} className="bg-zinc-900 border-4 border-black p-6 md:p-10 shadow-[8px_8px_0px_0px_#000000] text-center">
+              <div className="w-20 h-20 mx-auto bg-black border-4 border-yellow-400 flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(250,204,21,0.3)]">
+                <span className="text-yellow-400 text-4xl">🔒</span>
               </div>
+              <h2 className="text-3xl font-black uppercase text-white mb-2 tracking-tighter">Acesso Restrito</h2>
+              <p className="font-bold text-zinc-400 uppercase tracking-widest mb-8 text-sm">
+                Digite a senha atual para acessar as configurações críticas de segurança e banco de dados.
+              </p>
+              
+              <div className="max-w-xs mx-auto flex flex-col gap-4">
+                <input 
+                  type="password" 
+                  value={authPassword}
+                  onChange={(e) => setAuthPassword(e.target.value)}
+                  placeholder="SUA SENHA ATUAL"
+                  className="w-full bg-zinc-800 text-white border-4 border-black p-4 font-black uppercase text-center outline-none focus:border-yellow-400 transition-colors placeholder:text-zinc-600"
+                  required
+                />
+                <button 
+                  type="submit"
+                  disabled={isAuthenticating || !authPassword}
+                  className="w-full bg-yellow-400 text-black py-4 font-black text-lg uppercase tracking-widest border-4 border-black hover:bg-yellow-500 disabled:opacity-50 active:translate-y-1 transition-all"
+                >
+                  {isAuthenticating ? 'VERIFICANDO...' : 'DESTRAVAR COFRE'}
+                </button>
+              </div>
+            </form>
+          ) : (
+            
+            /* SE A PORTA DE AÇO ESTIVER DESTRAVADA, MOSTRA AS DUAS CAIXAS (SENHA E DELETAR DADOS) */
+            <div className="flex flex-col gap-8 animate-in zoom-in-95 duration-300">
+              
+              {/* CAIXA 1: TROCAR SENHA */}
+              <form onSubmit={handleChangePassword} className="bg-white border-4 border-black p-6 shadow-[6px_6px_0px_0px_#000000]">
+                <h2 className="font-black text-2xl uppercase tracking-tighter mb-2 border-b-4 border-black pb-2">Alterar Chave de Acesso</h2>
+                <p className="font-bold text-xs text-zinc-600 uppercase tracking-widest mb-6">Mantenha sua conta segura alterando a senha periodicamente.</p>
+                
+                <div className="flex flex-col md:flex-row gap-4 items-end">
+                  <div className="flex-1 w-full">
+                    <label className="block font-black uppercase tracking-widest text-xs mb-1">Nova Senha Mestra (Mín. 6 caracteres)</label>
+                    <input 
+                      type="password" 
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      placeholder="DIGITE A NOVA SENHA" 
+                      className="w-full bg-zinc-50 border-4 border-black p-4 font-black uppercase outline-none focus:bg-zinc-200 transition-colors"
+                      required
+                      minLength={6}
+                    />
+                  </div>
+                  <button 
+                    type="submit"
+                    disabled={isChangingPassword || newPassword.length < 6}
+                    className="w-full md:w-auto bg-black text-white px-8 py-4 font-black text-sm uppercase tracking-widest border-4 border-black hover:bg-zinc-800 disabled:opacity-50 transition-colors"
+                  >
+                    {isChangingPassword ? 'ATUALIZANDO...' : 'TROCAR SENHA E SAIR'}
+                  </button>
+                </div>
+              </form>
+
+              {/* CAIXA 2: OBLITERAÇÃO DE DADOS (ZONA DE PERIGO) */}
+              <div className="bg-red-50 border-4 border-red-600 p-6 md:p-8 shadow-[6px_6px_0px_0px_#DC2626]">
+                <div className="flex items-center gap-4 mb-4 border-b-4 border-red-600 pb-4">
+                  <div className="w-12 h-12 bg-red-600 text-white flex items-center justify-center font-black text-2xl">!</div>
+                  <div>
+                    <h2 className="font-black text-2xl md:text-3xl uppercase tracking-tighter text-red-600">Zona de Perigo</h2>
+                    <p className="font-bold text-xs md:text-sm text-red-800 uppercase tracking-widest">Reset de Fábrica / Obliteração de Dados</p>
+                  </div>
+                </div>
+
+                <p className="font-bold text-sm text-red-700 uppercase mb-6 leading-relaxed">
+                  Esta ação vai apagar permanentemente todas as tabelas do sistema: 
+                  <br/><br/>
+                  • Operadores<br/>
+                  • Serviços<br/>
+                  • Agendamentos<br/>
+                  • Planos Mensais
+                  <br/><br/>
+                  digite a frase de segurança abaixo.
+                </p>
+
+                <div className="bg-white border-4 border-red-600 p-4 mb-6">
+                  <label className="block font-black uppercase tracking-widest text-xs mb-2 text-red-600">
+                    Digite exatamente: <span className="text-black bg-zinc-200 px-2 py-1 select-all">apagar</span>
+                  </label>
+                  <input 
+                    type="text" 
+                    value={wipeConfirmation}
+                    onChange={(e) => setWipeConfirmation(e.target.value)}
+                    placeholder="DIGITE A FRASE AQUI" 
+                    className="w-full bg-zinc-50 border-4 border-black p-4 font-black uppercase text-center outline-none focus:bg-red-100 transition-colors"
+                  />
+                </div>
+
+                <button 
+                  onClick={handleWipeData}
+                  disabled={isWiping || wipeConfirmation !== 'apagar'}
+                  className="w-full bg-red-600 text-white py-5 font-black text-lg md:text-xl uppercase tracking-widest border-4 border-black hover:bg-red-700 disabled:opacity-50 disabled:bg-zinc-400 disabled:border-zinc-500 transition-all shadow-[4px_4px_0px_0px_#000000] active:translate-y-1 active:shadow-none"
+                >
+                  {isWiping ? 'OBLITERANDO BANCO DE DADOS...' : 'DELETAR TUDO E RESETAR SISTEMA'}
+                </button>
+              </div>
+
             </div>
-
-            <p className="font-bold text-sm text-red-700 uppercase mb-6 leading-relaxed">
-              Esta ação vai apagar permanentemente todas as tabelas do sistema: 
-              <br/><br/>
-              • Operadores<br/>
-              • Serviços<br/>
-              • Agendamentos<br/>
-              • Planos Mensais
-              <br/><br/>
-              Se você está limpando os dados de teste para entregar o sistema em produção, digite a frase de segurança abaixo.
-            </p>
-
-            <div className="bg-white border-4 border-red-600 p-4 mb-6">
-              <label className="block font-black uppercase tracking-widest text-xs mb-2 text-red-600">
-                Digite exatamente: <span className="text-black bg-zinc-200 px-2 py-1 select-all">apagar</span>
-              </label>
-              <input 
-                type="text" 
-                value={wipeConfirmation}
-                onChange={(e) => setWipeConfirmation(e.target.value)}
-                placeholder="DIGITE A FRASE AQUI" 
-                className="w-full bg-zinc-50 border-4 border-black p-4 font-black uppercase text-center outline-none focus:bg-red-100 transition-colors"
-              />
-            </div>
-
-            <button 
-              onClick={handleWipeData}
-              disabled={isWiping || wipeConfirmation !== 'apagar'}
-              className="w-full bg-red-600 text-white py-5 font-black text-lg md:text-xl uppercase tracking-widest border-4 border-black hover:bg-red-700 disabled:opacity-50 disabled:bg-zinc-400 disabled:border-zinc-500 transition-all shadow-[4px_4px_0px_0px_#000000] active:translate-y-1 active:shadow-none"
-            >
-              {isWiping ? 'OBLITERANDO BANCO DE DADOS...' : 'DELETAR TUDO E RESETAR SISTEMA'}
-            </button>
-          </div>
-
+          )}
         </div>
       )}
-
-      
-
     </div>
-
-    
   );
-
-
-  
 }
